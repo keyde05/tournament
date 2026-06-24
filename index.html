@@ -260,6 +260,57 @@
     .self-report p { margin-bottom: 10px; font-size: 14px; }
     .self-report-btns { display: flex; gap: 10px; flex-wrap: wrap; }
 
+    /* ===== PODIUM (Top 3) ===== */
+    .podium-kicker {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 28px;
+      margin-bottom: 12px;
+    }
+    .podium {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .podium-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      width: 120px;
+    }
+    .podium-medal { font-size: 28px; line-height: 1; }
+    .podium-name {
+      font-weight: 700;
+      font-size: 14px;
+      text-align: center;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .podium-score { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+    .podium-block {
+      width: 100%;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 8px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 26px;
+      border-radius: 4px 4px 0 0;
+      color: var(--bg);
+    }
+    .podium-step.rank-1 .podium-block { height: 90px; background: var(--lime); }
+    .podium-step.rank-2 .podium-block { height: 64px; background: #c9d3da; }
+    .podium-step.rank-3 .podium-block { height: 48px; background: #d9a066; }
+
     /* ===== PAGE GRID ===== */
     .page-grid {
       display: grid;
@@ -350,20 +401,68 @@
     .team-list li:last-child { border: none; }
     .t-name { font-size: 15px; font-weight: 600; color: var(--text); }
 
-    /* ===== BRACKET ===== */
-    .bracket {
+    /* ===== BRACKET TREE (two sides converging on a center Final) ===== */
+    .bracket-tree {
       display: flex;
+      align-items: center;
+      justify-content: center;
       gap: 0;
       overflow-x: auto;
+      padding: 12px 4px 24px;
     }
-    .round {
+    .bracket-arm {
+      display: flex;
+      align-items: stretch;
+      gap: 40px;
+    }
+    .bracket-col-wrap {
+      display: flex;
+      flex-direction: column;
+      min-width: 150px;
+    }
+    .bracket-rcol {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-evenly;
+      gap: 14px;
       flex: 1;
-      min-width: 140px;
-      border-right: 1px solid var(--border);
-      padding-right: 16px;
-      margin-right: 16px;
     }
-    .round:last-child { border-right: none; padding-right: 0; margin-right: 0; }
+    .bracket-rcol .match { position: relative; margin-bottom: 0; }
+    .bracket-arm.left .bracket-rcol .match::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: -20px;
+      width: 20px;
+      height: 1px;
+      background: var(--rule-strong);
+    }
+    .bracket-arm.right .bracket-rcol .match::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: -20px;
+      width: 20px;
+      height: 1px;
+      background: var(--rule-strong);
+    }
+    .bracket-final-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 0 40px;
+      min-width: 160px;
+    }
+    .bracket-trophy { font-size: 30px; line-height: 1; }
+    .bracket-final-label {
+      font-family: 'Bebas Neue', sans-serif;
+      letter-spacing: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .bracket-final-wrap .match { width: 100%; }
     .round-label {
       font-family: 'Bebas Neue', sans-serif;
       font-size: 14px;
@@ -372,11 +471,13 @@
       margin-bottom: 12px;
       padding-bottom: 6px;
       border-bottom: 1px solid var(--border);
+      text-align: center;
     }
     .match {
       background: var(--surface);
       border-left: 3px solid var(--rule-strong);
       margin-bottom: 10px;
+      min-height: 60px;
     }
     .match-row {
       padding: 7px 10px;
@@ -432,8 +533,9 @@
       .top-actions { border-left: none; padding-left: 0; }
       .page-grid { grid-template-columns: 1fr; }
       .grid-col + .grid-col { padding-left: 0; border-left: none; border-top: 1px solid var(--border); padding-top: 24px; }
-      .bracket { flex-direction: column; }
-      .round { border-right: none; padding-right: 0; margin-right: 0; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 16px; }
+      .bracket-arm { gap: 24px; }
+      .bracket-rcol { min-width: 130px; }
+      .bracket-final-wrap { padding: 0 20px; }
       .stack-row { flex-direction: column; align-items: stretch; }
       .stack-row select { width: 100%; }
       .self-report-btns { flex-direction: column; }
@@ -493,7 +595,20 @@
     function scheduleRender(renderFn) {
       clearTimeout(pendingRenderTimer);
       const wait = Math.max(0, suppressRenderUntil - Date.now());
-      pendingRenderTimer = setTimeout(renderFn, wait);
+      pendingRenderTimer = setTimeout(() => attemptRender(renderFn), wait);
+    }
+    // Even after the suppression window passes, don't blow away the DOM
+    // while the player is actively focused in a field (e.g. mid-pick on the
+    // claim dropdown right as an external/echoed update arrives) — wait
+    // until they're not, then render.
+    function attemptRender(renderFn) {
+      const active = document.activeElement;
+      const isTyping = active && ['INPUT', 'SELECT', 'TEXTAREA'].includes(active.tagName);
+      if (isTyping) {
+        pendingRenderTimer = setTimeout(() => attemptRender(renderFn), 400);
+      } else {
+        renderFn();
+      }
     }
 
     // Firebase Realtime Database silently drops any key whose value is null,
@@ -638,6 +753,8 @@
 
         ${renderClaimBox(t)}
 
+        ${renderPodium(t)}
+
         <div class="page-grid">
           ${t.bracket ? `
             <div class="grid-col-full">
@@ -679,6 +796,24 @@
           </div>
         </div>
       `;
+    }
+
+    function renderPodium(t) {
+      const top3 = getLeaderboard(t).slice(0, 3);
+      if (!top3.length) return '';
+      const medals = ['🥇', '🥈', '🥉'];
+      const order = [1, 0, 2]; // display order: 2nd, 1st, 3rd (classic podium)
+      return `
+        <div class="podium-kicker">Top Teams</div>
+        <div class="podium">
+          ${order.filter(i => top3[i]).map(i => `
+            <div class="podium-step rank-${i + 1}">
+              <div class="podium-medal">${medals[i]}</div>
+              <div class="podium-name">${esc(top3[i].name)}</div>
+              <div class="podium-score">${top3[i].wins}W ${top3[i].losses}L</div>
+              <div class="podium-block">${i + 1}</div>
+            </div>`).join('')}
+        </div>`;
     }
 
     function renderClaimBox(t) {
@@ -741,14 +876,45 @@
         </div>`;
     }
 
+    // Splits every round except the final into a left half and a right half
+    // of matches, so the bracket can be drawn as two sides converging on a
+    // single Final column in the middle (like a classic tournament chart),
+    // instead of one flat left-to-right list of rounds.
+    function buildBracketSides(bracket) {
+      const rounds = bracket.rounds;
+      const lastIdx = rounds.length - 1;
+      const leftCols = [];
+      const rightCols = [];
+      for (let r = 0; r < lastIdx; r++) {
+        const matches = rounds[r].matches;
+        const half = matches.length / 2;
+        leftCols.push({ rIdx: r, matches: matches.slice(0, half) });
+        rightCols.push({ rIdx: r, matches: matches.slice(half) });
+      }
+      rightCols.reverse(); // deepest (closest to Final) first, Round 1 last
+      return { leftCols, rightCols, finalMatch: rounds[lastIdx].matches[0], totalRounds: rounds.length };
+    }
+
     function renderBracket(t) {
-      const totalRounds = t.bracket.rounds.length;
-      return `<div class="bracket">
-        ${t.bracket.rounds.map((round, rIdx) => `
-          <div class="round">
-            <div class="round-label">${roundLabel(rIdx, totalRounds)}</div>
-            ${round.matches.map(m => renderMatchView(t, m)).join('')}
-          </div>`).join('')}
+      const { leftCols, rightCols, finalMatch, totalRounds } = buildBracketSides(t.bracket);
+      const renderArm = (cols, side) => cols.length ? `
+        <div class="bracket-arm ${side}">
+          ${cols.map(col => `
+            <div class="bracket-col-wrap">
+              <div class="round-label">${roundLabel(col.rIdx, totalRounds)}</div>
+              <div class="bracket-rcol">
+                ${col.matches.map(m => renderMatchView(t, m)).join('')}
+              </div>
+            </div>`).join('')}
+        </div>` : '';
+      return `<div class="bracket-tree">
+        ${renderArm(leftCols, 'left')}
+        <div class="bracket-final-wrap">
+          <div class="bracket-trophy">🏆</div>
+          <div class="round-label">${roundLabel(totalRounds - 1, totalRounds)}</div>
+          ${renderMatchView(t, finalMatch)}
+        </div>
+        ${renderArm(rightCols, 'right')}
       </div>`;
     }
 
