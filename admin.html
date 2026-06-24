@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ms">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -541,7 +541,7 @@
 <body>
   <canvas id="matrix-canvas"></canvas>
   <div id="app">
-    <p class="loading">⏳ Memuatkan...</p>
+    <p class="loading">⏳ Loading...</p>
   </div>
 
   <script>
@@ -1007,7 +1007,7 @@
 
     function generateBracket(tournament) {
       const teamIds = tournament.teams.map(t => t.id);
-      if (teamIds.length < 2) throw new Error('Perlukan sekurang-kurangnya 2 team untuk generate bracket.');
+      if (teamIds.length < 2) throw new Error('Need at least 2 teams to generate the bracket.');
 
       const shuffled = shuffleArray(teamIds);
       const n = shuffled.length;
