@@ -306,6 +306,7 @@
       border-radius: 16px;
       padding: 24px;
       box-shadow: var(--shadow);
+      min-width: 0;
     }
     .content .muted { color: var(--dim); text-align: center; padding: 40px 0; }
 
@@ -493,7 +494,21 @@
       justify-content: center;
       gap: 0;
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x proximity;
       padding: 8px 4px 16px;
+      min-width: 0;
+    }
+    .bracket-tree .bracket-col-wrap,
+    .bracket-tree .bracket-final-wrap { scroll-snap-align: center; }
+    .scroll-hint {
+      display: none;
+      text-align: center;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--dim);
+      margin-bottom: 6px;
     }
     .bracket-arm { display: flex; align-items: stretch; gap: 36px; }
     .bracket-col-wrap { display: flex; flex-direction: column; min-width: 150px; }
@@ -511,6 +526,16 @@
     }
     .bracket-trophy { font-size: 28px; line-height: 1; }
     .bracket-final-wrap .match { width: 100%; }
+    .third-place-box {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--border);
+      width: 100%;
+    }
+    .third-place-box h4 { font-size: 10px; }
+    .third-place-box .match { border-color: #c98a4b; }
+    .third-place-box .match-row.winner { color: #c98a4b; }
+    .third-place-box .match-row.winner::before { content: '🥉 '; }
     .bracket-col-wrap h4, .bracket-final-wrap h4 {
       font-family: 'Orbitron', sans-serif;
       font-weight: 600;
@@ -585,7 +610,16 @@
       .bracket-arm { gap: 20px; }
       .bracket-col-wrap { min-width: 125px; }
       .bracket-final-wrap { padding: 0 16px; }
+      .scroll-hint { display: block; }
       .auth-box { padding: 24px 20px; margin: 30px 12px; }
+      /* Touch targets: desktop's compact sizing is too small to tap
+         reliably on a phone, and inputs under 16px trigger iOS Safari's
+         auto-zoom-on-focus. */
+      .btn { min-height: 40px; padding: 10px 16px; }
+      .btn.small { min-height: 38px; padding: 8px 14px; }
+      .btn.xsmall { min-height: 32px; padding: 6px 12px; }
+      input, select { font-size: 16px; min-height: 42px; }
+      .match-row { min-height: 38px; display: flex; align-items: center; }
     }
     @media (max-width: 420px) {
       #app { padding: 10px 12px 30px; }
@@ -705,8 +739,30 @@
       return Object.assign({}, t, {
         teams: toArray(t.teams),
         bracket: t.bracket ? normalizeBracket(t.bracket) : null,
-        champion: t.champion || null
+        champion: t.champion || null,
+        thirdPlaceWinner: t.thirdPlaceWinner || null
       });
+    }
+
+    // The two semifinal losers play each other for 3rd place. This match is
+    // derived on the fly from the semifinal results (not part of the win
+    // bracket itself) and only exists once both semifinals are decided.
+    function getThirdPlaceMatch(t) {
+      if (!t.bracket || t.bracket.rounds.length < 2) return null;
+      const semiRound = t.bracket.rounds[t.bracket.rounds.length - 2];
+      if (semiRound.matches.length !== 2) return null;
+      const [m1, m2] = semiRound.matches;
+      if (m1.status !== 'done' || m2.status !== 'done') return null;
+      const loser1 = m1.teamA === m1.winner ? m1.teamB : m1.teamA;
+      const loser2 = m2.teamA === m2.winner ? m2.teamB : m2.teamA;
+      const winner = (t.thirdPlaceWinner === loser1 || t.thirdPlaceWinner === loser2) ? t.thirdPlaceWinner : null;
+      return { teamA: loser1, teamB: loser2, winner, status: winner ? 'done' : 'ready' };
+    }
+
+    function setThirdPlaceWinner(tournament, winnerId) {
+      const tp = getThirdPlaceMatch(tournament);
+      if (!tp || (winnerId !== tp.teamA && winnerId !== tp.teamB)) return;
+      tournament.thirdPlaceWinner = winnerId;
     }
     function normalizeBracket(b) {
       return Object.assign({}, b, {
@@ -887,7 +943,12 @@
     }
 
     function renderPodium(t) {
-      const top3 = getLeaderboard(t).slice(0, 3);
+      let top3 = getLeaderboard(t).slice(0, 3);
+      const tp = getThirdPlaceMatch(t);
+      if (tp && tp.winner) {
+        const thirdTeam = t.teams.find(team => team.id === tp.winner);
+        if (thirdTeam) top3 = [top3[0], top3[1], thirdTeam].filter(Boolean);
+      }
       if (!top3.length) return '';
       const medals = ['🥇', '🥈', '🥉'];
       const order = [1, 0, 2]; // display order: 2nd, 1st, 3rd (classic podium)
@@ -981,6 +1042,7 @@
 
     function renderBracket(t) {
       const { leftCols, rightCols, finalRIdx, finalMatch, totalRounds } = buildBracketSides(t.bracket);
+      const thirdPlace = getThirdPlaceMatch(t);
       const renderArm = (cols, side) => cols.length ? `
         <div class="bracket-arm ${side}">
           ${cols.map(col => `
@@ -991,15 +1053,22 @@
               </div>
             </div>`).join('')}
         </div>` : '';
-      return `<div class="bracket-tree">
-        ${renderArm(leftCols, 'left')}
-        <div class="bracket-final-wrap">
-          <div class="bracket-trophy">🏆</div>
-          <h4>${roundLabel(finalRIdx, totalRounds)}</h4>
-          ${renderMatchAdmin(t, finalMatch, finalRIdx, 0)}
-        </div>
-        ${renderArm(rightCols, 'right')}
-      </div>`;
+      return `
+        <div class="scroll-hint">← Swipe to see full bracket →</div>
+        <div class="bracket-tree">
+          ${renderArm(leftCols, 'left')}
+          <div class="bracket-final-wrap">
+            <div class="bracket-trophy">🏆</div>
+            <h4>${roundLabel(finalRIdx, totalRounds)}</h4>
+            ${renderMatchAdmin(t, finalMatch, finalRIdx, 0)}
+            ${thirdPlace ? `
+              <div class="third-place-box">
+                <h4>🥉 3rd Place</h4>
+                ${renderMatchAdmin(t, thirdPlace, '3rd', 0)}
+              </div>` : ''}
+          </div>
+          ${renderArm(rightCols, 'right')}
+        </div>`;
     }
 
     function renderMatchAdmin(t, m, rIdx, mIdx) {
@@ -1126,7 +1195,11 @@
           const [rIdx, mIdx, teamId] = el.dataset.pick.split(':');
           const t = getTournament(data, selectedTournamentId);
           try {
-            setMatchWinner(t, Number(rIdx), Number(mIdx), teamId);
+            if (rIdx === '3rd') {
+              setThirdPlaceWinner(t, teamId);
+            } else {
+              setMatchWinner(t, Number(rIdx), Number(mIdx), teamId);
+            }
             saveData(data);
             renderDashboard();
           } catch (err) {
@@ -1138,10 +1211,15 @@
       // Reset match
       document.querySelectorAll('[data-reset]').forEach(el => {
         el.addEventListener('click', () => {
-          if (!confirm('Reset this match? Later rounds will also be cleared.')) return;
           const [rIdx, mIdx] = el.dataset.reset.split(':');
           const t = getTournament(data, selectedTournamentId);
-          clearMatchForward(t, Number(rIdx), Number(mIdx));
+          if (rIdx === '3rd') {
+            if (!confirm('Reset the 3rd place match?')) return;
+            t.thirdPlaceWinner = null;
+          } else {
+            if (!confirm('Reset this match? Later rounds will also be cleared.')) return;
+            clearMatchForward(t, Number(rIdx), Number(mIdx));
+          }
           saveData(data);
           renderDashboard();
         });
