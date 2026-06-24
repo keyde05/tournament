@@ -10,6 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <style>
     /* ===== RESET & ROOT ===== */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -580,6 +582,95 @@
     const ADMIN_HASH_KEY = 'vulsanx_admin_hash';
     const ADMIN_SESSION_KEY = 'vulsanx_admin_logged_in';
 
+    // ===== FIREBASE SETUP =====
+    // 1. Go to https://console.firebase.google.com -> Add project (free).
+    // 2. Build > Realtime Database -> Create Database -> start in test mode
+    //    (or use the security rules from README.md).
+    // 3. Project settings (gear icon) > General > Your apps > Add app (Web "</>")
+    //    -> copy the firebaseConfig object it gives you.
+    // 4. Paste it below, replacing the placeholder values. Paste the EXACT
+    //    SAME config into index.html so both pages share the same database.
+    const firebaseConfig = {
+      apiKey: "AIzaSyDUmbqZVLXdd5TluGZ9Dpib99UB4pihnoQ",
+      authDomain: "tournament-2412.firebaseapp.com",
+      databaseURL: "https://tournament-2412-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "tournament-2412"
+    };
+    const FIREBASE_CONFIGURED = firebaseConfig.apiKey !== "PASTE_YOUR_API_KEY";
+    let dataRef = null;
+    if (FIREBASE_CONFIGURED) {
+      firebase.initializeApp(firebaseConfig);
+      dataRef = firebase.database().ref('vulsanx_data');
+    }
+    let firebaseFirstLoad = true;
+    // Local writes echo back through the same listener once Firebase confirms
+    // them. Re-rendering immediately on that echo would wipe any form field
+    // the admin started typing into in the meantime, so we briefly hold off
+    // right after our own writes. The render is *deferred*, not skipped, so
+    // an update that arrives during that window (e.g. a player reporting a
+    // result seconds after the bracket was generated) still shows up as soon
+    // as the window ends, instead of getting silently lost until some other
+    // change happens to come along.
+    let suppressRenderUntil = 0;
+    let pendingRenderTimer = null;
+
+    function scheduleRender(renderFn) {
+      clearTimeout(pendingRenderTimer);
+      const wait = Math.max(0, suppressRenderUntil - Date.now());
+      pendingRenderTimer = setTimeout(renderFn, wait);
+    }
+
+    // Firebase Realtime Database silently drops any key whose value is null,
+    // [] or {} when it stores data (and an array with gaps comes back as an
+    // object instead of an array). That means fields like `teams: []` or
+    // `bracket: null` vanish entirely on write and read back as `undefined`.
+    // Re-fill the expected shape every time we get a snapshot so the rest of
+    // the app can keep assuming arrays/objects are always there.
+    function normalizeData(raw) {
+      const d = raw || {};
+      return {
+        tournaments: toArray(d.tournaments).map(normalizeTournament),
+        activeTournamentId: d.activeTournamentId || null,
+        claims: d.claims || {}
+      };
+    }
+    function normalizeTournament(t) {
+      return Object.assign({}, t, {
+        teams: toArray(t.teams),
+        bracket: t.bracket ? normalizeBracket(t.bracket) : null,
+        champion: t.champion || null
+      });
+    }
+    function normalizeBracket(b) {
+      return Object.assign({}, b, {
+        rounds: toArray(b.rounds).map(r => Object.assign({}, r, { matches: toArray(r.matches) }))
+      });
+    }
+    function toArray(v) {
+      if (Array.isArray(v)) return v;
+      if (v && typeof v === 'object') return Object.values(v);
+      return [];
+    }
+
+    function startRealtimeSync() {
+      return new Promise((resolve) => {
+        if (!dataRef) {
+          resolve({ tournaments: [], activeTournamentId: null, claims: {} });
+          return;
+        }
+        dataRef.on('value', (snapshot) => {
+          const val = snapshot.val();
+          data = normalizeData(val);
+          if (firebaseFirstLoad) {
+            firebaseFirstLoad = false;
+            resolve(data);
+          } else if (sessionStorage.getItem(ADMIN_SESSION_KEY) === '1') {
+            scheduleRender(renderDashboard);
+          }
+        });
+      });
+    }
+
     let data = null;
     let selectedTournamentId = null;
     const root = document.getElementById('app');
@@ -596,7 +687,16 @@
     }
 
     async function init() {
-      data = await bootstrapData();
+      if (!FIREBASE_CONFIGURED) {
+        root.innerHTML = `
+          <div class="auth-box">
+            <h2>⚠️ Setup Required</h2>
+            <p class="sub">Firebase is not configured yet</p>
+            <p class="muted" style="margin-top:0;">Edit the <code>firebaseConfig</code> object near the top of the script in <strong>admin.html</strong> and <strong>index.html</strong> with your own Firebase project credentials, then reload this page. See README.md for step-by-step instructions.</p>
+          </div>`;
+        return;
+      }
+      data = await startRealtimeSync();
       if (!localStorage.getItem(ADMIN_HASH_KEY)) {
         renderSetPassword();
       } else if (sessionStorage.getItem(ADMIN_SESSION_KEY) === '1') {
@@ -1124,24 +1224,8 @@
     }
 
     function saveData(data) {
-      localStorage.setItem('vulsanx_data_v1', JSON.stringify(data));
-    }
-
-    async function bootstrapData() {
-      const existing = localStorage.getItem('vulsanx_data_v1');
-      if (existing) return JSON.parse(existing);
-      try {
-        const res = await fetch('data.json', { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          const merged = { tournaments: json.tournaments || [], activeTournamentId: json.activeTournamentId || null, claims: {} };
-          localStorage.setItem('vulsanx_data_v1', JSON.stringify(merged));
-          return merged;
-        }
-      } catch (e) {}
-      const fresh = { tournaments: [], activeTournamentId: null, claims: {} };
-      localStorage.setItem('vulsanx_data_v1', JSON.stringify(fresh));
-      return fresh;
+      suppressRenderUntil = Date.now() + 1200;
+      if (dataRef) dataRef.set(data);
     }
 
     function exportData(data) {
@@ -1162,11 +1246,11 @@
       reader.onload = () => {
         try {
           const json = JSON.parse(reader.result);
-          const data = JSON.parse(localStorage.getItem('vulsanx_data_v1') || '{"tournaments":[],"activeTournamentId":null,"claims":{}}');
-          data.tournaments = json.tournaments || [];
-          data.activeTournamentId = json.activeTournamentId || (data.tournaments[0] && data.tournaments[0].id) || null;
-          saveData(data);
-          onDone(null, data);
+          const merged = { tournaments: [], activeTournamentId: null, claims: {}, ...data };
+          merged.tournaments = json.tournaments || [];
+          merged.activeTournamentId = json.activeTournamentId || (merged.tournaments[0] && merged.tournaments[0].id) || null;
+          saveData(merged);
+          onDone(null, merged);
         } catch (e) {
           onDone(e);
         }
