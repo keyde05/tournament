@@ -1,22 +1,795 @@
 <!DOCTYPE html>
-<html lang="ms">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f6b3c" />
+  <meta name="theme-color" content="#090c11" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>vulsanX Badminton Tournament</title>
+  <title>vulsanX // CYBER SMASH TOURNAMENT</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏸</text></svg>" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #090c11;
+      --surface: #11161f;
+      --surface-soft: #131a24;
+      --surface-strong: #1c2431;
+      --text: #f4f5ef;
+      --muted: #9aa2a9;
+      --border: rgba(255,255,255,0.12);
+      --rule: rgba(255,255,255,0.08);
+      --rule-strong: rgba(255,255,255,0.16);
+      --lime: #C8FF00;
+      --green: #00A86B;
+      --red: #E8002D;
+      --ink: #e6e7dd;
+      --paper: #171f29;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ===== TICKER STRIP ===== */
+    .ticker {
+      background: var(--surface);
+      color: var(--lime);
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      padding: 6px 0;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .ticker-inner {
+      display: inline-block;
+      animation: tick 30s linear infinite;
+    }
+    .ticker-inner span { margin: 0 40px; }
+    @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+    /* ===== APP WRAPPER ===== */
+    #app {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* ===== HEADER ===== */
+    .topbar {
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      padding: 0;
+      border-bottom: 3px solid var(--border);
+      margin-bottom: 0;
+    }
+    .brand-block {
+      padding: 18px 0 14px;
+      flex: 1;
+    }
+    .brand-eyebrow {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    .brand-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(42px, 7vw, 72px);
+      letter-spacing: 2px;
+      line-height: 0.95;
+      color: var(--text);
+    }
+    .brand-name .accent { color: var(--lime); -webkit-text-stroke: 1px var(--bg); }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      padding: 0 0 0 24px;
+      border-left: 1px solid var(--border);
+    }
+
+    /* ===== BUTTONS ===== */
+    .btn {
+      padding: 8px 18px;
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+      font-size: 11px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      border-radius: 0;
+    }
+    .btn:hover { background: var(--text); color: var(--bg); }
+    .btn.primary { background: var(--lime); border-color: var(--lime); color: var(--bg); font-weight: 700; }
+    .btn.primary:hover { background: var(--text); color: var(--lime); }
+    .btn.danger { border-color: var(--red); color: var(--red); }
+    .btn.danger:hover { background: var(--red); color: var(--text); }
+    .btn.ghost { border-color: var(--border); color: var(--muted); }
+    .btn.ghost:hover { border-color: var(--text); color: var(--text); background: transparent; }
+    .btn.small { padding: 5px 14px; font-size: 10px; }
+    .btn.xsmall { padding: 4px 10px; font-size: 9px; }
+
+    /* ===== TOURNAMENT SELECT ===== */
+    .trn-select-wrap { padding: 16px 0; border-bottom: 1px solid var(--border); }
+    .trn-select {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      max-width: 280px;
+      outline: none;
+      cursor: pointer;
+      border-radius: 0;
+      width: 100%;
+    }
+    .trn-select:focus { outline: 2px solid var(--lime); outline-offset: 2px; }
+
+    /* ===== TOURNAMENT HERO ===== */
+    .trn-hero {
+      padding: 32px 0 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .trn-hero-left {}
+    .trn-kicker {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .trn-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(36px, 6vw, 72px);
+      line-height: 0.95;
+      letter-spacing: 1px;
+      color: var(--text);
+    }
+    .trn-meta {
+      margin-top: 10px;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .status-tag {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border: 1.5px solid;
+    }
+    .status-tag.setup { border-color: var(--muted); color: var(--muted); }
+    .status-tag.ongoing { background: var(--lime); border-color: var(--lime); color: var(--bg); }
+    .status-tag.completed { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+    /* ===== CHAMPION BANNER ===== */
+    .champion-banner {
+      background: var(--surface);
+      color: var(--lime);
+      padding: 20px 28px;
+      margin: 24px 0;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .champion-trophy {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 14px;
+      letter-spacing: 3px;
+      color: var(--lime);
+      opacity: 0.8;
+    }
+    .champion-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(28px, 4vw, 42px);
+      letter-spacing: 2px;
+      line-height: 1;
+    }
+
+    /* ===== CLAIM BOX ===== */
+    .claim-box {
+      border: 1.5px solid var(--rule-strong);
+      padding: 20px 24px;
+      margin: 20px 0;
+      background: var(--surface);
+    }
+    .claim-box.claimed { border-color: var(--border); border-left: 5px solid var(--lime); }
+    .claim-box p { font-size: 14px; margin-bottom: 12px; }
+    .claim-box strong { color: var(--text); font-weight: 700; }
+    .claim-kicker {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .stack-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .stack-row select {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      min-width: 180px;
+      outline: none;
+      cursor: pointer;
+      border-radius: 0;
+    }
+    .stack-row select:focus { outline: 2px solid var(--lime); }
+    .self-report { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rule-strong); }
+    .self-report p { margin-bottom: 10px; font-size: 14px; }
+    .self-report-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* ===== PAGE GRID ===== */
+    .page-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      margin-top: 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .grid-col {
+      padding: 24px 0;
+    }
+    .grid-col + .grid-col {
+      padding-left: 28px;
+      border-left: 1px solid var(--border);
+    }
+    .grid-col-full {
+      grid-column: 1 / -1;
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ===== SECTION HEADERS ===== */
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--border);
+    }
+    .section-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      letter-spacing: 2px;
+      color: var(--text);
+    }
+    .section-count {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    /* ===== LEADERBOARD ===== */
+    .leaderboard {
+      list-style: none;
+    }
+    .leaderboard li {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .leaderboard li:last-child { border: none; }
+    .leaderboard li.top1 { background: var(--lime); margin: 0 -8px; padding: 10px 8px; }
+    .lb-rank {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px;
+      color: var(--muted);
+      width: 28px;
+      text-align: center;
+      line-height: 1;
+    }
+    .leaderboard li.top1 .lb-rank { color: var(--bg); }
+    .lb-name { flex: 1; font-weight: 500; }
+    .lb-score {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .lb-score .w { color: var(--green); font-weight: 700; }
+    .leaderboard li.top1 .lb-score { color: var(--bg); }
+    .leaderboard li.top1 .lb-score .w { color: var(--bg); }
+
+    /* ===== TEAM LIST ===== */
+    .team-list { list-style: none; }
+    .team-list li {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .team-list li:last-child { border: none; }
+    .t-name { font-size: 15px; font-weight: 600; color: var(--text); }
+
+    /* ===== BRACKET ===== */
+    .bracket {
+      display: flex;
+      gap: 0;
+      overflow-x: auto;
+    }
+    .round {
+      flex: 1;
+      min-width: 140px;
+      border-right: 1px solid var(--border);
+      padding-right: 16px;
+      margin-right: 16px;
+    }
+    .round:last-child { border-right: none; padding-right: 0; margin-right: 0; }
+    .round-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 14px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .match {
+      background: var(--surface);
+      border-left: 3px solid var(--rule-strong);
+      margin-bottom: 10px;
+    }
+    .match-row {
+      padding: 7px 10px;
+      font-size: 13px;
+      font-weight: 500;
+      border-bottom: 1px solid var(--border);
+    }
+    .match-row:last-child { border: none; }
+    .match-row.winner {
+      color: var(--bg);
+      font-weight: 700;
+      background: var(--lime);
+      border-left: none;
+    }
+    .match-row.loser { color: var(--muted); }
+    .match-row.muted-row { color: var(--muted); font-style: italic; font-size: 12px; padding: 10px; }
+    .match-row small { color: var(--muted); font-size: 10px; }
+
+    /* ===== EMPTY STATE ===== */
+    .empty-state {
+      padding: 40px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ===== FOOTER RULE ===== */
+    .footer-bar {
+      margin-top: 48px;
+      border-top: 3px solid var(--border);
+      padding-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-brand {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 16px;
+      letter-spacing: 3px;
+      color: var(--text);
+    }
+    .footer-note {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 700px) {
+      .topbar { flex-wrap: wrap; gap: 12px; border-bottom: 3px solid var(--border); }
+      .top-actions { border-left: none; padding-left: 0; }
+      .page-grid { grid-template-columns: 1fr; }
+      .grid-col + .grid-col { padding-left: 0; border-left: none; border-top: 1px solid var(--border); padding-top: 24px; }
+      .bracket { flex-direction: column; }
+      .round { border-right: none; padding-right: 0; margin-right: 0; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 16px; }
+      .stack-row { flex-direction: column; align-items: stretch; }
+      .stack-row select { width: 100%; }
+      .self-report-btns { flex-direction: column; }
+      .self-report-btns .btn { text-align: center; justify-content: center; }
+      .trn-hero { flex-direction: column; align-items: flex-start; }
+    }
+    @media (max-width: 420px) {
+      #app { padding: 0 14px 50px; }
+    }
+  </style>
 </head>
 <body>
-  <div id="app">
-    <p class="loading">Memuatkan...</p>
+
+  <div class="ticker">
+    <div class="ticker-inner">
+      <span>🏸 VULSANX CYBER SMASH</span>
+      <span>LIVE TOURNAMENT BRACKET</span>
+      <span>REGISTER YOUR TEAM DEVICE BELOW</span>
+      <span>REPORT MATCH RESULTS IN REAL TIME</span>
+      <span>🏸 VULSANX CYBER SMASH</span>
+      <span>LIVE TOURNAMENT BRACKET</span>
+      <span>REGISTER YOUR TEAM DEVICE BELOW</span>
+      <span>REPORT MATCH RESULTS IN REAL TIME</span>
+    </div>
   </div>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <div id="app"></div>
+
+  <script>
+    let data = null;
+    let selectedTournamentId = null;
+    const root = document.getElementById('app');
+
+    function esc(str) {
+      const div = document.createElement('div');
+      div.textContent = str == null ? '' : String(str);
+      return div.innerHTML;
+    }
+
+    async function init() {
+      data = await bootstrapData();
+      selectedTournamentId = data.activeTournamentId;
+      render();
+    }
+
+    function teamName(t, teamId) {
+      if (!teamId) return '-';
+      const team = t.teams.find(x => x.id === teamId);
+      return team ? team.name : '?';
+    }
+
+    function render() {
+      const tournament = selectedTournamentId ? getTournament(data, selectedTournamentId) : null;
+
+      root.innerHTML = `
+        <header class="topbar" style="padding:0;">
+          <div class="brand-block">
+            <div class="brand-eyebrow">Badminton Tournament</div>
+            <div class="brand-name">vulsan<span class="accent">X</span></div>
+          </div>
+          <div class="top-actions">
+            <a href="admin.html" class="btn small ghost">Admin ↗</a>
+          </div>
+        </header>
+
+        <main>
+          ${data.tournaments.length > 1 ? `
+            <div class="trn-select-wrap">
+              <select id="trnSelect" class="trn-select">
+                ${data.tournaments.map(t => `<option value="${t.id}" ${t.id === selectedTournamentId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
+              </select>
+            </div>` : ''}
+
+          ${tournament ? renderTournament(tournament) : `
+            <div class="empty-state" style="padding:80px 0;">
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:2px;opacity:0.2;margin-bottom:12px;">NO TOURNAMENTS</div>
+              <p>Waiting for the superadmin to set up.</p>
+            </div>`}
+        </main>
+
+        <div class="footer-bar">
+          <div class="footer-brand">VULSANX</div>
+          <div class="footer-note">CYBER SMASH TOURNAMENT SYSTEM</div>
+        </div>
+      `;
+
+      bindEvents(tournament);
+    }
+
+    function renderTournament(t) {
+      const statusLabels = { setup: 'Belum Mula', ongoing: 'Live', completed: 'Final' };
+      const statusClass = t.status || 'setup';
+
+      return `
+        <div class="trn-hero">
+          <div class="trn-hero-left">
+            <div class="trn-kicker">Tournament</div>
+            <h1 class="trn-title">${esc(t.name)}</h1>
+            <div class="trn-meta">
+              <span class="status-tag ${statusClass}">${statusLabels[t.status] || t.status}</span>
+            </div>
+          </div>
+        </div>
+
+        ${t.status === 'completed' && t.champion ? `
+          <div class="champion-banner">
+            <div class="champion-trophy">Champion</div>
+            <div class="champion-name">${esc(teamName(t, t.champion))}</div>
+          </div>` : ''}
+
+        ${renderClaimBox(t)}
+
+        <div class="page-grid">
+          ${t.bracket ? `
+            <div class="grid-col-full">
+              <div class="section-head">
+                <span class="section-label">Bracket</span>
+              </div>
+              ${renderBracket(t)}
+            </div>` : `
+            <div class="grid-col-full">
+              <div class="section-head"><span class="section-label">Bracket</span></div>
+              <div class="empty-state" style="padding:24px 0;text-align:left;">Bracket belum digenerate oleh superadmin.</div>
+            </div>`}
+
+          <div class="grid-col">
+            <div class="section-head">
+              <span class="section-label">Leaderboard</span>
+            </div>
+            <ol class="leaderboard">
+              ${getLeaderboard(t).map((team, i) => `
+                <li class="${i === 0 ? 'top1' : ''}">
+                  <span class="lb-rank">${i + 1}</span>
+                  <span class="lb-name">${esc(team.name)}</span>
+                  <span class="lb-score"><span class="w">${team.wins}W</span> ${team.losses}L</span>
+                </li>`).join('') || '<li style="color:var(--muted);padding:10px 0;font-size:13px;font-family:DM Mono,monospace;">No data yet.</li>'}
+            </ol>
+          </div>
+
+          <div class="grid-col">
+            <div class="section-head">
+              <span class="section-label">Teams</span>
+              <span class="section-count">${t.teams.length} Registered</span>
+            </div>
+            <ul class="team-list">
+              ${t.teams.map(team => `
+                <li>
+                  <span class="t-name">${esc(team.name)}</span>
+                </li>`).join('') || '<li style="color:var(--muted);padding:10px 0;font-size:13px;">Tiada team lagi.</li>'}
+            </ul>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderClaimBox(t) {
+      const claimedTeamId = getClaim(data, t.id);
+
+      if (claimedTeamId) {
+        const team = t.teams.find(x => x.id === claimedTeamId);
+        if (!team) {
+          clearClaim(data, t.id);
+        } else {
+          const liveMatch = findLiveMatchForTeam(t, claimedTeamId);
+          return `
+            <div class="claim-box claimed">
+              <div class="claim-kicker">Device Registered As</div>
+              <p>Team: <strong>${esc(team.name)}</strong></p>
+              ${liveMatch ? renderSelfReport(t, liveMatch, claimedTeamId) : '<p style="color:var(--muted);font-size:13px;font-family:DM Mono,monospace;">No active match for your team right now.</p>'}
+              <button id="unclaimBtn" class="btn xsmall ghost" style="margin-top:14px;">Bukan team anda? Reset →</button>
+            </div>`;
+        }
+      }
+
+      if (!t.teams.length) return '';
+
+      return `
+        <div class="claim-box">
+          <div class="claim-kicker">Register This Device</div>
+          <p>Pilih team anda untuk peranti ini (pendaftaran sekali untuk laporan menang/kalah):</p>
+          <form id="claimForm" class="stack-row">
+            <select id="claimTeamSelect">
+              ${t.teams.map(team => `<option value="${team.id}">${esc(team.name)}</option>`).join('')}
+            </select>
+            <button type="submit" class="btn primary small">Confirm →</button>
+          </form>
+        </div>`;
+    }
+
+    function findLiveMatchForTeam(t, teamId) {
+      if (!t.bracket) return null;
+      for (let rIdx = 0; rIdx < t.bracket.rounds.length; rIdx++) {
+        const matches = t.bracket.rounds[rIdx].matches;
+        for (let mIdx = 0; mIdx < matches.length; mIdx++) {
+          const m = matches[mIdx];
+          if (m.status === 'ready' && (m.teamA === teamId || m.teamB === teamId)) {
+            return { rIdx, mIdx, match: m };
+          }
+        }
+      }
+      return null;
+    }
+
+    function renderSelfReport(t, live, teamId) {
+      const opponentId = live.match.teamA === teamId ? live.match.teamB : live.match.teamA;
+      return `
+        <div class="self-report">
+          <p>Match anda sekarang menentang <strong>${esc(teamName(t, opponentId))}</strong>:</p>
+          <div class="self-report-btns">
+            <button class="btn primary" data-report="${live.rIdx}:${live.mIdx}:${teamId}">Kami Menang →</button>
+            <button class="btn danger" data-report="${live.rIdx}:${live.mIdx}:${opponentId}">Kami Kalah</button>
+          </div>
+        </div>`;
+    }
+
+    function renderBracket(t) {
+      const totalRounds = t.bracket.rounds.length;
+      return `<div class="bracket">
+        ${t.bracket.rounds.map((round, rIdx) => `
+          <div class="round">
+            <div class="round-label">${roundLabel(rIdx, totalRounds)}</div>
+            ${round.matches.map(m => renderMatchView(t, m)).join('')}
+          </div>`).join('')}
+      </div>`;
+    }
+
+    function renderMatchView(t, m) {
+      const aName = teamName(t, m.teamA);
+      const bName = teamName(t, m.teamB);
+      if (m.status === 'bye') {
+        return `<div class="match"><div class="match-row winner">${esc(m.teamA ? aName : bName)} <small>(bye)</small></div></div>`;
+      }
+      if (m.status === 'pending') {
+        return `<div class="match"><div class="match-row muted-row">Menunggu...</div></div>`;
+      }
+      if (m.status === 'ready') {
+        return `<div class="match"><div class="match-row">${esc(aName)}</div><div class="match-row">${esc(bName)}</div></div>`;
+      }
+      return `<div class="match">
+        <div class="match-row ${m.winner === m.teamA ? 'winner' : 'loser'}">${esc(aName)}</div>
+        <div class="match-row ${m.winner === m.teamB ? 'winner' : 'loser'}">${esc(bName)}</div>
+      </div>`;
+    }
+
+    function bindEvents(tournament) {
+      const trnSelect = document.getElementById('trnSelect');
+      if (trnSelect) trnSelect.addEventListener('change', () => {
+        selectedTournamentId = trnSelect.value;
+        render();
+      });
+
+      const claimForm = document.getElementById('claimForm');
+      if (claimForm) claimForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const teamId = document.getElementById('claimTeamSelect').value;
+        setClaim(data, tournament.id, teamId);
+        render();
+      });
+
+      const unclaimBtn = document.getElementById('unclaimBtn');
+      if (unclaimBtn) unclaimBtn.addEventListener('click', () => {
+        if (!confirm('Reset pendaftaran team untuk peranti ini?')) return;
+        clearClaim(data, tournament.id);
+        render();
+      });
+
+      document.querySelectorAll('[data-report]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const [rIdx, mIdx, winnerId] = btn.dataset.report.split(':');
+          setMatchWinner(tournament, Number(rIdx), Number(mIdx), winnerId);
+          saveData(data);
+          render();
+        });
+      });
+    }
+
+    async function bootstrapData() {
+      const existing = localStorage.getItem('vulsanx_data_v1');
+      if (existing) return JSON.parse(existing);
+      try {
+        const res = await fetch('data.json', { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          const merged = { tournaments: json.tournaments || [], activeTournamentId: json.activeTournamentId || null, claims: {} };
+          localStorage.setItem('vulsanx_data_v1', JSON.stringify(merged));
+          return merged;
+        }
+      } catch (e) {}
+      const fresh = { tournaments: [], activeTournamentId: null, claims: {} };
+      localStorage.setItem('vulsanx_data_v1', JSON.stringify(fresh));
+      return fresh;
+    }
+
+    function getTournament(data, id) { return data.tournaments.find(t => t.id === id) || null; }
+    function getDeviceId() {
+      let id = localStorage.getItem('vulsanx_device_id');
+      if (!id) {
+        id = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        localStorage.setItem('vulsanx_device_id', id);
+      }
+      return id;
+    }
+    function getClaim(data, tournamentId) {
+      const deviceId = getDeviceId();
+      return (data.claims[tournamentId] || {})[deviceId] || null;
+    }
+    function setClaim(data, tournamentId, teamId) {
+      const deviceId = getDeviceId();
+      if (!data.claims[tournamentId]) data.claims[tournamentId] = {};
+      data.claims[tournamentId][deviceId] = teamId;
+      localStorage.setItem('vulsanx_data_v1', JSON.stringify(data));
+    }
+    function clearClaim(data, tournamentId) {
+      const deviceId = getDeviceId();
+      if (data.claims[tournamentId]) delete data.claims[tournamentId][deviceId];
+      localStorage.setItem('vulsanx_data_v1', JSON.stringify(data));
+    }
+    function saveData(data) { localStorage.setItem('vulsanx_data_v1', JSON.stringify(data)); }
+    function getLeaderboard(tournament) {
+      return tournament.teams.slice().sort((a, b) => {
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        return a.losses - b.losses;
+      });
+    }
+    function roundLabel(roundIndex, totalRounds) {
+      const fromEnd = totalRounds - roundIndex;
+      if (fromEnd === 1) return 'Final';
+      if (fromEnd === 2) return 'Semifinal';
+      if (fromEnd === 3) return 'Quarterfinal';
+      return 'Round ' + (roundIndex + 1);
+    }
+    function setMatchWinner(tournament, roundIndex, matchIndex, winnerId) {
+      const match = tournament.bracket.rounds[roundIndex].matches[matchIndex];
+      if (!match.teamA || !match.teamB) return;
+      if (winnerId !== match.teamA && winnerId !== match.teamB) return;
+      match.winner = winnerId;
+      match.status = 'done';
+      const winner = tournament.teams.find(t => t.id === winnerId);
+      const loserId = match.teamA === winnerId ? match.teamB : match.teamA;
+      const loser = tournament.teams.find(t => t.id === loserId);
+      if (winner) winner.wins += 1;
+      if (loser) loser.losses += 1;
+      const nextRoundIndex = roundIndex + 1;
+      if (nextRoundIndex < tournament.bracket.rounds.length) {
+        const nextMatch = tournament.bracket.rounds[nextRoundIndex].matches[Math.floor(matchIndex / 2)];
+        if (matchIndex % 2 === 0) nextMatch.teamA = winnerId;
+        else nextMatch.teamB = winnerId;
+        if (nextMatch.teamA && nextMatch.teamB) nextMatch.status = 'ready';
+        else nextMatch.status = 'pending';
+      }
+      if (roundIndex === tournament.bracket.rounds.length - 1) {
+        tournament.status = 'completed';
+        tournament.champion = winnerId;
+      }
+      saveData(data);
+    }
+
+    init();
+  </script>
 </body>
 </html>
