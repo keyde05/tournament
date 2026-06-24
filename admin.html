@@ -348,6 +348,44 @@
     .trn-meta .badge.ongoing { border-color: var(--green); color: var(--green); background: rgba(57,255,154,0.06); }
     .trn-meta .badge.completed { border-color: var(--cyan); color: var(--cyan); background: rgba(0,240,255,0.06); }
 
+    /* ===== PODIUM (Top 3) ===== */
+    .podium-kicker {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--dim);
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .podium {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .podium-step { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 110px; }
+    .podium-medal { font-size: 24px; line-height: 1; }
+    .podium-name { font-weight: 700; font-size: 13px; color: var(--text); text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .podium-score { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--dim); }
+    .podium-block {
+      width: 100%;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 6px;
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      border-radius: 8px 8px 0 0;
+      color: var(--bg);
+    }
+    .podium-step.rank-1 .podium-block { height: 76px; background: var(--cyan); box-shadow: 0 0 16px rgba(0,240,255,0.3); }
+    .podium-step.rank-2 .podium-block { height: 54px; background: #aab8c4; }
+    .podium-step.rank-3 .podium-block { height: 40px; background: #c98a4b; }
+
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -448,18 +486,32 @@
     .leaderboard li span:first-child { font-weight: 600; }
     .leaderboard li span:last-child { color: var(--dim); font-family: 'Share Tech Mono', monospace; }
 
-    /* ===== BRACKET ===== */
-    .bracket {
+    /* ===== BRACKET TREE (two sides converging on a center Final) ===== */
+    .bracket-tree {
       display: flex;
-      gap: 20px;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
       overflow-x: auto;
-      padding: 8px 0;
+      padding: 8px 4px 16px;
     }
-    .round {
-      flex: 1;
-      min-width: 150px;
+    .bracket-arm { display: flex; align-items: stretch; gap: 36px; }
+    .bracket-col-wrap { display: flex; flex-direction: column; min-width: 150px; }
+    .bracket-rcol { display: flex; flex-direction: column; justify-content: space-evenly; gap: 12px; flex: 1; }
+    .bracket-rcol .match { position: relative; margin-bottom: 0; }
+    .bracket-arm.left .bracket-rcol .match::after {
+      content: ''; position: absolute; top: 50%; right: -18px; width: 18px; height: 1px; background: var(--border);
     }
-    .round h4 {
+    .bracket-arm.right .bracket-rcol .match::before {
+      content: ''; position: absolute; top: 50%; left: -18px; width: 18px; height: 1px; background: var(--border);
+    }
+    .bracket-final-wrap {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; padding: 0 36px; min-width: 160px;
+    }
+    .bracket-trophy { font-size: 28px; line-height: 1; }
+    .bracket-final-wrap .match { width: 100%; }
+    .bracket-col-wrap h4, .bracket-final-wrap h4 {
       font-family: 'Orbitron', sans-serif;
       font-weight: 600;
       font-size: 11px;
@@ -477,6 +529,7 @@
       border-radius: 8px;
       padding: 6px 10px;
       margin-bottom: 6px;
+      min-height: 54px;
     }
     .match-row {
       padding: 3px 0;
@@ -529,8 +582,9 @@
       .topbar { flex-direction: column; align-items: flex-start; }
       .top-actions { width: 100%; justify-content: flex-start; }
       .trn-header { flex-direction: column; align-items: flex-start; }
-      .bracket { flex-direction: column; }
-      .round { min-width: 100%; }
+      .bracket-arm { gap: 20px; }
+      .bracket-col-wrap { min-width: 125px; }
+      .bracket-final-wrap { padding: 0 16px; }
       .auth-box { padding: 24px 20px; margin: 30px 12px; }
     }
     @media (max-width: 420px) {
@@ -617,7 +671,20 @@
     function scheduleRender(renderFn) {
       clearTimeout(pendingRenderTimer);
       const wait = Math.max(0, suppressRenderUntil - Date.now());
-      pendingRenderTimer = setTimeout(renderFn, wait);
+      pendingRenderTimer = setTimeout(() => attemptRender(renderFn), wait);
+    }
+    // Even after the suppression window passes, don't blow away the DOM
+    // while the admin is actively focused in a text field (e.g. mid-typing
+    // a team name right as an external/echoed update arrives) — wait until
+    // they're not, then render.
+    function attemptRender(renderFn) {
+      const active = document.activeElement;
+      const isTyping = active && ['INPUT', 'SELECT', 'TEXTAREA'].includes(active.tagName);
+      if (isTyping) {
+        pendingRenderTimer = setTimeout(() => attemptRender(renderFn), 400);
+      } else {
+        renderFn();
+      }
     }
 
     // Firebase Realtime Database silently drops any key whose value is null,
@@ -819,6 +886,24 @@
       bindDashboardEvents(tournament);
     }
 
+    function renderPodium(t) {
+      const top3 = getLeaderboard(t).slice(0, 3);
+      if (!top3.length) return '';
+      const medals = ['🥇', '🥈', '🥉'];
+      const order = [1, 0, 2]; // display order: 2nd, 1st, 3rd (classic podium)
+      return `
+        <div class="podium-kicker">Top Teams</div>
+        <div class="podium">
+          ${order.filter(i => top3[i]).map(i => `
+            <div class="podium-step rank-${i + 1}">
+              <div class="podium-medal">${medals[i]}</div>
+              <div class="podium-name">${esc(top3[i].name)}</div>
+              <div class="podium-score">${top3[i].wins}W ${top3[i].losses}L</div>
+              <div class="podium-block">${i + 1}</div>
+            </div>`).join('')}
+        </div>`;
+    }
+
     function renderTournamentPanel(t) {
       return `
         <div class="trn-header">
@@ -831,6 +916,8 @@
 
         ${t.status === 'completed' && t.champion ? `
           <div class="champion-banner">🏆 Champion: ${esc(teamName(t, t.champion))}</div>` : ''}
+
+        ${renderPodium(t)}
 
         <div class="grid-2">
           <div class="card">
@@ -873,14 +960,45 @@
       `;
     }
 
+    // Splits every round except the final into a left half and a right half
+    // of matches, so the bracket can be drawn as two sides converging on a
+    // single Final column in the middle (like a classic tournament chart),
+    // instead of one flat left-to-right list of rounds.
+    function buildBracketSides(bracket) {
+      const rounds = bracket.rounds;
+      const lastIdx = rounds.length - 1;
+      const leftCols = [];
+      const rightCols = [];
+      for (let r = 0; r < lastIdx; r++) {
+        const indexed = rounds[r].matches.map((m, i) => ({ m, mIdx: i }));
+        const half = indexed.length / 2;
+        leftCols.push({ rIdx: r, items: indexed.slice(0, half) });
+        rightCols.push({ rIdx: r, items: indexed.slice(half) });
+      }
+      rightCols.reverse(); // deepest (closest to Final) first, Round 1 last
+      return { leftCols, rightCols, finalRIdx: lastIdx, finalMatch: rounds[lastIdx].matches[0], totalRounds: rounds.length };
+    }
+
     function renderBracket(t) {
-      const totalRounds = t.bracket.rounds.length;
-      return `<div class="bracket">
-        ${t.bracket.rounds.map((round, rIdx) => `
-          <div class="round">
-            <h4>${roundLabel(rIdx, totalRounds)}</h4>
-            ${round.matches.map((m, mIdx) => renderMatchAdmin(t, m, rIdx, mIdx)).join('')}
-          </div>`).join('')}
+      const { leftCols, rightCols, finalRIdx, finalMatch, totalRounds } = buildBracketSides(t.bracket);
+      const renderArm = (cols, side) => cols.length ? `
+        <div class="bracket-arm ${side}">
+          ${cols.map(col => `
+            <div class="bracket-col-wrap">
+              <h4>${roundLabel(col.rIdx, totalRounds)}</h4>
+              <div class="bracket-rcol">
+                ${col.items.map(({ m, mIdx }) => renderMatchAdmin(t, m, col.rIdx, mIdx)).join('')}
+              </div>
+            </div>`).join('')}
+        </div>` : '';
+      return `<div class="bracket-tree">
+        ${renderArm(leftCols, 'left')}
+        <div class="bracket-final-wrap">
+          <div class="bracket-trophy">🏆</div>
+          <h4>${roundLabel(finalRIdx, totalRounds)}</h4>
+          ${renderMatchAdmin(t, finalMatch, finalRIdx, 0)}
+        </div>
+        ${renderArm(rightCols, 'right')}
       </div>`;
     }
 
