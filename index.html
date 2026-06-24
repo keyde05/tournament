@@ -463,6 +463,15 @@
       font-size: 12px;
     }
     .bracket-final-wrap .match { width: 100%; }
+    .third-place-box {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px dashed var(--rule-strong);
+      width: 100%;
+    }
+    .third-place-box .round-label { font-size: 11px; }
+    .third-place-box .match { border-left-color: #d9a066; }
+    .third-place-box .match-row.winner { background: #d9a066; }
     .round-label {
       font-family: 'Bebas Neue', sans-serif;
       font-size: 14px;
@@ -541,6 +550,15 @@
       .self-report-btns { flex-direction: column; }
       .self-report-btns .btn { text-align: center; justify-content: center; }
       .trn-hero { flex-direction: column; align-items: flex-start; }
+      /* Touch targets: desktop's compact editorial sizing is too small to
+         tap reliably on a phone, and inputs under 16px trigger iOS Safari's
+         auto-zoom-on-focus. */
+      .btn { min-height: 40px; padding: 10px 16px; }
+      .btn.small { min-height: 38px; padding: 8px 14px; }
+      .btn.xsmall { min-height: 32px; padding: 6px 12px; }
+      input, select { font-size: 16px; min-height: 42px; }
+      .self-report-btns .btn { min-height: 50px; font-size: 13px; }
+      .match-row { min-height: 38px; display: flex; align-items: center; }
     }
     @media (max-width: 420px) {
       #app { padding: 0 14px 50px; }
@@ -629,7 +647,8 @@
       return Object.assign({}, t, {
         teams: toArray(t.teams),
         bracket: t.bracket ? normalizeBracket(t.bracket) : null,
-        champion: t.champion || null
+        champion: t.champion || null,
+        thirdPlaceWinner: t.thirdPlaceWinner || null
       });
     }
     function normalizeBracket(b) {
@@ -799,7 +818,12 @@
     }
 
     function renderPodium(t) {
-      const top3 = getLeaderboard(t).slice(0, 3);
+      let top3 = getLeaderboard(t).slice(0, 3);
+      const tp = getThirdPlaceMatch(t);
+      if (tp && tp.winner) {
+        const thirdTeam = t.teams.find(team => team.id === tp.winner);
+        if (thirdTeam) top3 = [top3[0], top3[1], thirdTeam].filter(Boolean);
+      }
       if (!top3.length) return '';
       const medals = ['🥇', '🥈', '🥉'];
       const order = [1, 0, 2]; // display order: 2nd, 1st, 3rd (classic podium)
@@ -851,17 +875,43 @@
     }
 
     function findLiveMatchForTeam(t, teamId) {
-      if (!t.bracket) return null;
-      for (let rIdx = 0; rIdx < t.bracket.rounds.length; rIdx++) {
-        const matches = t.bracket.rounds[rIdx].matches;
-        for (let mIdx = 0; mIdx < matches.length; mIdx++) {
-          const m = matches[mIdx];
-          if (m.status === 'ready' && (m.teamA === teamId || m.teamB === teamId)) {
-            return { rIdx, mIdx, match: m };
+      if (t.bracket) {
+        for (let rIdx = 0; rIdx < t.bracket.rounds.length; rIdx++) {
+          const matches = t.bracket.rounds[rIdx].matches;
+          for (let mIdx = 0; mIdx < matches.length; mIdx++) {
+            const m = matches[mIdx];
+            if (m.status === 'ready' && (m.teamA === teamId || m.teamB === teamId)) {
+              return { rIdx, mIdx, match: m };
+            }
           }
         }
       }
+      const tp = getThirdPlaceMatch(t);
+      if (tp && tp.status === 'ready' && (tp.teamA === teamId || tp.teamB === teamId)) {
+        return { rIdx: '3rd', mIdx: 0, match: tp };
+      }
       return null;
+    }
+
+    // The two semifinal losers play each other for 3rd place. This match is
+    // derived on the fly from the semifinal results (not part of the win
+    // bracket itself) and only exists once both semifinals are decided.
+    function getThirdPlaceMatch(t) {
+      if (!t.bracket || t.bracket.rounds.length < 2) return null;
+      const semiRound = t.bracket.rounds[t.bracket.rounds.length - 2];
+      if (semiRound.matches.length !== 2) return null;
+      const [m1, m2] = semiRound.matches;
+      if (m1.status !== 'done' || m2.status !== 'done') return null;
+      const loser1 = m1.teamA === m1.winner ? m1.teamB : m1.teamA;
+      const loser2 = m2.teamA === m2.winner ? m2.teamB : m2.teamA;
+      const winner = (t.thirdPlaceWinner === loser1 || t.thirdPlaceWinner === loser2) ? t.thirdPlaceWinner : null;
+      return { teamA: loser1, teamB: loser2, winner, status: winner ? 'done' : 'ready' };
+    }
+
+    function setThirdPlaceWinner(tournament, winnerId) {
+      const tp = getThirdPlaceMatch(tournament);
+      if (!tp || (winnerId !== tp.teamA && winnerId !== tp.teamB)) return;
+      tournament.thirdPlaceWinner = winnerId;
     }
 
     function renderSelfReport(t, live, teamId) {
@@ -897,6 +947,7 @@
 
     function renderBracket(t) {
       const { leftCols, rightCols, finalMatch, totalRounds } = buildBracketSides(t.bracket);
+      const thirdPlace = getThirdPlaceMatch(t);
       const renderArm = (cols, side) => cols.length ? `
         <div class="bracket-arm ${side}">
           ${cols.map(col => `
@@ -913,6 +964,11 @@
           <div class="bracket-trophy">🏆</div>
           <div class="round-label">${roundLabel(totalRounds - 1, totalRounds)}</div>
           ${renderMatchView(t, finalMatch)}
+          ${thirdPlace ? `
+            <div class="third-place-box">
+              <div class="round-label">🥉 3rd Place</div>
+              ${renderMatchView(t, thirdPlace)}
+            </div>` : ''}
         </div>
         ${renderArm(rightCols, 'right')}
       </div>`;
@@ -962,7 +1018,11 @@
         btn.addEventListener('click', () => {
           const [rIdx, mIdx, winnerId] = btn.dataset.report.split(':');
           const t = getTournament(data, tournament.id);
-          setMatchWinner(t, Number(rIdx), Number(mIdx), winnerId);
+          if (rIdx === '3rd') {
+            setThirdPlaceWinner(t, winnerId);
+          } else {
+            setMatchWinner(t, Number(rIdx), Number(mIdx), winnerId);
+          }
           saveData(data);
           render();
         });
