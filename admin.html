@@ -426,7 +426,11 @@
       gap: 8px;
     }
     .team-list li:last-child { border: none; }
-    .team-list li strong { color: var(--cyan); font-size: 14px; }
+    .team-list li strong { color: var(--cyan); font-size: 14px; flex: 1; min-width: 0; }
+    .seed-num { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--dim); width: 18px; text-align: center; flex: none; }
+    .reorder-btns { display: flex; gap: 4px; flex: none; }
+    .reorder-btns .btn { padding: 2px 8px; min-height: 0; }
+    .seed-hint { color: var(--dim); font-size: 11px; margin: -6px 0 10px; font-family: 'Share Tech Mono', monospace; }
     .team-list .team-stats {
       font-family: 'Share Tech Mono', monospace;
       font-size: 11px;
@@ -983,12 +987,21 @@
         <div class="grid-2">
           <div class="card">
             <h3>Teams (${t.teams.length})</h3>
+            ${t.status === 'setup' && t.teams.length > 1 ? `
+              <p class="seed-hint">Order below = bracket seeding (no shuffle). Use ↑↓ to arrange. If the count isn't a power of 2, the team(s) at the bottom get the round-1 bye.</p>` : ''}
             <ul class="team-list">
-              ${t.teams.map(team => `
+              ${t.teams.map((team, i) => `
                 <li>
+                  ${t.status === 'setup' ? `<span class="seed-num">${i + 1}</span>` : ''}
                   <strong>${esc(team.name)}</strong>
                   <div class="team-stats">${team.wins}W - ${team.losses}L</div>
-                  ${t.status === 'setup' ? `<button class="btn xsmall danger" data-remove-team="${team.id}">✕</button>` : ''}
+                  ${t.status === 'setup' ? `
+                    <div class="reorder-btns">
+                      <button class="btn xsmall ghost" data-move="${team.id}:up" ${i === 0 ? 'disabled' : ''}>↑</button>
+                      <button class="btn xsmall ghost" data-move="${team.id}:down" ${i === t.teams.length - 1 ? 'disabled' : ''}>↓</button>
+                    </div>
+                    <button class="btn xsmall danger" data-remove-team="${team.id}">✕</button>
+                  ` : ''}
                 </li>`).join('') || '<li class="muted">No teams yet.</li>'}
             </ul>
 
@@ -1153,6 +1166,17 @@
         renderDashboard();
       });
 
+      // Reorder team (bracket seeding)
+      document.querySelectorAll('[data-move]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const [teamId, direction] = btn.dataset.move.split(':');
+          const t = getTournament(data, selectedTournamentId);
+          moveTeam(t, teamId, direction);
+          saveData(data);
+          renderDashboard();
+        });
+      });
+
       // Remove team
       document.querySelectorAll('[data-remove-team]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1271,20 +1295,19 @@
       tournament.teams = tournament.teams.filter(t => t.id !== teamId);
     }
 
+    function moveTeam(tournament, teamId, direction) {
+      const teams = tournament.teams;
+      const i = teams.findIndex(t => t.id === teamId);
+      const j = direction === 'up' ? i - 1 : i + 1;
+      if (i === -1 || j < 0 || j >= teams.length) return;
+      [teams[i], teams[j]] = [teams[j], teams[i]];
+    }
+
     function getLeaderboard(tournament) {
       return tournament.teams.slice().sort((a, b) => {
         if (b.wins !== a.wins) return b.wins - a.wins;
         return a.losses - b.losses;
       });
-    }
-
-    function shuffleArray(arr) {
-      const a = arr.slice();
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
-      return a;
     }
 
     function nextPowerOf2(n) {
@@ -1302,11 +1325,14 @@
     }
 
     function generateBracket(tournament) {
-      const teamIds = tournament.teams.map(t => t.id);
-      if (teamIds.length < 2) throw new Error('Need at least 2 teams to generate the bracket.');
+      // Uses the team list in its current order (whatever the admin arranged
+      // via the move up/down controls) — no random shuffling. If the team
+      // count isn't a power of 2, the teams at the END of the list get the
+      // byes in round 1.
+      const ordered = tournament.teams.map(t => t.id);
+      if (ordered.length < 2) throw new Error('Need at least 2 teams to generate the bracket.');
 
-      const shuffled = shuffleArray(teamIds);
-      const n = shuffled.length;
+      const n = ordered.length;
       const size = nextPowerOf2(n);
       const matchCount = size / 2;
       const byesNeeded = size - n;
@@ -1315,11 +1341,11 @@
       const round1 = [];
       let idx = 0;
       for (let i = 0; i < fullMatches; i++) {
-        round1.push(makeMatch(shuffled[idx], shuffled[idx + 1]));
+        round1.push(makeMatch(ordered[idx], ordered[idx + 1]));
         idx += 2;
       }
       for (let i = 0; i < byesNeeded; i++) {
-        round1.push(makeMatch(shuffled[idx], null));
+        round1.push(makeMatch(ordered[idx], null));
         idx += 1;
       }
 
