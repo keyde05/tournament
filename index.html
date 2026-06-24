@@ -331,6 +331,7 @@
       grid-column: 1 / -1;
       padding: 24px 0;
       border-bottom: 1px solid var(--border);
+      min-width: 0;
     }
 
     /* ===== SECTION HEADERS ===== */
@@ -408,7 +409,22 @@
       justify-content: center;
       gap: 0;
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x proximity;
       padding: 12px 4px 24px;
+      min-width: 0;
+    }
+    .bracket-tree .bracket-col-wrap,
+    .bracket-tree .bracket-final-wrap { scroll-snap-align: center; }
+    .scroll-hint {
+      display: none;
+      text-align: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-top: -8px;
+      margin-bottom: 8px;
     }
     .bracket-arm {
       display: flex;
@@ -545,6 +561,7 @@
       .bracket-arm { gap: 24px; }
       .bracket-rcol { min-width: 130px; }
       .bracket-final-wrap { padding: 0 20px; }
+      .scroll-hint { display: block; }
       .stack-row { flex-direction: column; align-items: stretch; }
       .stack-row select { width: 100%; }
       .self-report-btns { flex-direction: column; }
@@ -958,20 +975,22 @@
               </div>
             </div>`).join('')}
         </div>` : '';
-      return `<div class="bracket-tree">
-        ${renderArm(leftCols, 'left')}
-        <div class="bracket-final-wrap">
-          <div class="bracket-trophy">🏆</div>
-          <div class="round-label">${roundLabel(totalRounds - 1, totalRounds)}</div>
-          ${renderMatchView(t, finalMatch)}
-          ${thirdPlace ? `
-            <div class="third-place-box">
-              <div class="round-label">🥉 3rd Place</div>
-              ${renderMatchView(t, thirdPlace)}
-            </div>` : ''}
-        </div>
-        ${renderArm(rightCols, 'right')}
-      </div>`;
+      return `
+        <div class="scroll-hint">← Swipe to see full bracket →</div>
+        <div class="bracket-tree">
+          ${renderArm(leftCols, 'left')}
+          <div class="bracket-final-wrap">
+            <div class="bracket-trophy">🏆</div>
+            <div class="round-label">${roundLabel(totalRounds - 1, totalRounds)}</div>
+            ${renderMatchView(t, finalMatch)}
+            ${thirdPlace ? `
+              <div class="third-place-box">
+                <div class="round-label">🥉 3rd Place</div>
+                ${renderMatchView(t, thirdPlace)}
+              </div>` : ''}
+          </div>
+          ${renderArm(rightCols, 'right')}
+        </div>`;
     }
 
     function renderMatchView(t, m) {
